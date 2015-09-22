@@ -12,6 +12,7 @@ import           Control.Applicative                (Applicative, (<$>))
 import           Data.Monoid                        (Monoid, mappend, mempty,
                                                      (<>))
 #endif
+import           Control.Monad                      (ap)
 import           Control.Monad.Trans.Except         (ExceptT, runExceptT)
 import qualified Data.ByteString                    as B
 import qualified Data.ByteString.Lazy               as BL
@@ -34,6 +35,18 @@ data RouteResult a =
   | FailFatal !ServantErr     -- ^ Don't try other paths.
   | Route !a
   deriving (Eq, Show, Read, Functor)
+
+
+newtype RouteResultM a = RouteResultM { unRouteResult :: IO (RouteResult a) }
+  deriving (Functor)
+
+instance Applicative RouteResultM where
+  pure = return
+  (<*>) = ap
+
+instance Monad RouteResultM where
+  return = RouteResultM . return . Route
+  RouteResultM m >>= f = RouteResultM $ m `bindRouteResults` (unRouteResult . f)
 
 data ReqBodyState = Uncalled
                   | Called !B.ByteString
