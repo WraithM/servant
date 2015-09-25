@@ -1,6 +1,9 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Servant.Server.Internal.Delayed where
 
+import Lens.Micro
+import Lens.Micro.TH
 import Control.Monad (liftM2)
 import Data.Functor.Contravariant
 import Data.ByteString
@@ -19,11 +22,6 @@ data Charset
 data Encoding
 data ServantErr
 
-data Delayed result = forall captures body . Delayed
-    (RequestDelayed captures body)
-    (AcceptDelayed result)
-    PreconditionDelayed
-    (captures -> body -> RouteResultM result) -- ^ the actual handler
 
 data RequestDelayed captures body = RequestDelayed {
     -- | Deserialize capture. Failure: 404
@@ -44,16 +42,10 @@ data RequestDelayed captures body = RequestDelayed {
   , _deserializationHandler :: DeserializationError -> ServantErr
     }
 
-captureCheck :: _
-captureCheck = lens _captureCheck _ -- (\s b -> s { _captureCheck s = b })
+makeLenses ''RequestDelayed
 
 instance Functor (RequestDelayed captures) where
-    fmap f rd = rd { _contentTypeCheck = (fmap.fmap) f <$> _contentTypeCheck rd
-                   , _bodyCheck = go f <$> _bodyCheck rd
-                   }
-        where
-          go :: (a -> b) -> ((c -> Either d a) -> a) -> (c -> Either d b) -> b
-          go f g h = undefined --- whatever, I'm drunk, but this works
+    fmap f rd = _
 
 
 data AcceptDelayed result = AcceptDelayed {
@@ -67,6 +59,8 @@ data AcceptDelayed result = AcceptDelayed {
   , _acceptEncodingCheck :: RouteResultM Encoding
   }
 
+makeLenses ''AcceptDelayed
+
 instance Contravariant AcceptDelayed where
     contramap f ad = ad { _acceptCheck = (. f) <$> _acceptCheck ad }
 
@@ -77,8 +71,13 @@ data PreconditionDelayed = PreconditionDelayed {
   , _ifModifiedSinceCheck :: RouteResultM ()
   }
 
+makeLenses ''PreconditionDelayed
 
-
+data Delayed result = forall captures body . Delayed
+    (RequestDelayed captures body)
+    (AcceptDelayed result)
+    PreconditionDelayed
+    (captures -> body -> RouteResultM result) -- ^ the actual handler
 {-
 addCapture :: Delayed (a -> b) -> RouteResultM a -> Delayed b
 addCapture (Delayed captures a b c d e f g h handler) new =
