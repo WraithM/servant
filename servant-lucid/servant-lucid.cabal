@@ -21,7 +21,9 @@ source-repository head
   location: http://github.com/haskell-servant/servant.git
 
 library
-  exposed-modules:     Servant.HTML.Lucid
+  exposed-modules:
+    Servant.HTML.Lucid,
+    Servant.HTML.Lucid.Template
   -- other-modules:
   -- other-extensions:
   build-depends:       base >=4.7 && <5
